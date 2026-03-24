@@ -71,7 +71,14 @@
           />
           <button :disabled="loading || !inputValue.trim()" @click="sendMessage">
             发送
-          </button>
+            </button>
+            <button
+            v-if="loading"
+            class="stop-btn"
+            @click="abortController?.abort()"
+            >
+            停止
+            </button>
         </div>
       </main>
 
@@ -95,6 +102,7 @@ import { createSession, loadSessions, saveSessions } from './utils/session'
 
 const inputValue = ref('')
 const loading = ref(false)
+const abortController = ref(null)
 
 const sessions = ref(loadSessions())
 const currentSessionId = ref(sessions.value[0]?.id || '')
@@ -226,28 +234,11 @@ const sendMessage = async () => {
     ],
   }))
 
-  await fetchMemories()
-
   inputValue.value = ''
   loading.value = true
 
   try {
-    const res = await axios.post('http://127.0.0.1:8000/api/chat', {
-      messages: currentSession.value.messages,
-      session_id: currentSession.value.id,
-    })
-
-    updateCurrentSession(session => ({
-      ...session,
-      updatedAt: Date.now(),
-      messages: [
-        ...session.messages,
-        {
-          role: 'assistant',
-          content: res.data.reply,
-        },
-      ],
-    }))
+    await sendMessageStream(currentSession.value.messages)
   } catch (error) {
     updateCurrentSession(session => ({
       ...session,
@@ -263,6 +254,112 @@ const sendMessage = async () => {
     console.error(error)
   } finally {
     loading.value = false
+    abortController.value = null
+  }
+}
+
+const sendMessageStream = async messages => {
+  abortController.value = new AbortController()
+
+  const res = await fetch('http://127.0.0.1:8000/api/chat/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messages,
+      session_id: currentSession.value.id,
+    }),
+    signal: abortController.value.signal,
+  })
+
+  if (!res.ok || !res.body) {
+    throw new Error('流式请求失败')
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+
+  updateCurrentSession(session => ({
+    ...session,
+    updatedAt: Date.now(),
+    messages: [
+      ...session.messages,
+      {
+        role: 'assistant',
+        content: '',
+      },
+    ],
+  }))
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith('data: ')) continue
+
+      const jsonText = line.slice(6)
+      if (!jsonText) continue
+
+      try {
+        const payload = JSON.parse(jsonText)
+
+        if (payload.type === 'chunk') {
+          updateCurrentSession(session => {
+            const nextMessages = [...session.messages]
+            const lastIndex = nextMessages.length - 1
+            const lastMessage = nextMessages[lastIndex]
+
+            if (lastMessage?.role === 'assistant') {
+              nextMessages[lastIndex] = {
+                ...lastMessage,
+                content: (lastMessage.content || '') + payload.content,
+              }
+            }
+
+            return {
+              ...session,
+              updatedAt: Date.now(),
+              messages: nextMessages,
+            }
+          })
+        }
+
+        if (payload.type === 'error') {
+          updateCurrentSession(session => {
+            const nextMessages = [...session.messages]
+            const lastIndex = nextMessages.length - 1
+            const lastMessage = nextMessages[lastIndex]
+
+            if (lastMessage?.role === 'assistant') {
+              nextMessages[lastIndex] = {
+                ...lastMessage,
+                content: payload.content,
+              }
+            }
+
+            return {
+              ...session,
+              updatedAt: Date.now(),
+              messages: nextMessages,
+            }
+          })
+        }
+
+        if (payload.type === 'done') {
+          await fetchMemories()
+        }
+      } catch (e) {
+        console.error('stream parse error:', e)
+      }
+    }
   }
 }
 

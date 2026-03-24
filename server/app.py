@@ -1,9 +1,11 @@
 import os
+import json
 from typing import List, Literal, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from openai import OpenAI
 
@@ -104,16 +106,8 @@ def extract_user_memories(user_text: str) -> List[str]:
         print("extract_user_memories error:", e)
         return []
 
-@app.get("/health")
-def health():
-    return {"ok": True}
-
-
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    messages = [m.model_dump() for m in req.messages]
-
-    session_memories = get_session_memories(req.session_id or "")
+def build_final_messages(messages: List[dict], session_id: str = ""):
+    session_memories = get_session_memories(session_id or "")
     memory_prompt = build_memory_prompt(session_memories)
 
     final_messages = []
@@ -125,6 +119,20 @@ def chat(req: ChatRequest):
             })
         else:
             final_messages.append(item)
+
+    return final_messages, session_memories
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    messages = [m.model_dump() for m in req.messages]
+    final_messages, session_memories = build_final_messages(messages, req.session_id or "")
+
+    print("session_memories:", session_memories)
 
     try:
         completion = client.chat.completions.create(
@@ -153,6 +161,54 @@ def chat(req: ChatRequest):
             add_session_memories(req.session_id, new_memories)
 
     return ChatResponse(reply=reply)
+
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatRequest):
+    messages = [m.model_dump() for m in req.messages]
+    final_messages, session_memories = build_final_messages(messages, req.session_id or "")
+
+    print("stream session_memories:", session_memories)
+
+    def generate():
+        full_reply = ""
+
+        try:
+            stream = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=final_messages,
+                temperature=0.7,
+                stream=True,
+            )
+
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_reply += delta
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': delta}, ensure_ascii=False)}\n\n"
+
+        except Exception as e:
+            print("stream chat error:", e)
+            yield f"data: {json.dumps({'type': 'error', 'content': 'AI服务异常，请稍后再试'}, ensure_ascii=False)}\n\n"
+            return
+
+        if req.session_id:
+            latest_user_text = ""
+            for item in reversed(messages):
+                if item["role"] == "user":
+                    latest_user_text = item["content"]
+                    break
+
+            print("stream session_id:", req.session_id)
+            print("stream latest_user_text:", latest_user_text)
+
+            if latest_user_text:
+                new_memories = extract_user_memories(latest_user_text)
+                print("stream new_memories:", new_memories)
+                add_session_memories(req.session_id, new_memories)
+
+        yield f"data: {json.dumps({'type': 'done', 'content': full_reply}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 @app.get("/api/memory/{session_id}", response_model=MemoryResponse)
 def get_memory(session_id: str):
