@@ -7,33 +7,41 @@
           <button class="new-btn" @click="handleCreateSession">+ 新建</button>
         </div>
 
-        <div
-            v-for="item in sessions"
-            :key="item.id"
-            :class="['session-item', currentSessionId === item.id ? 'active' : '']"
-            @click="handleSwitchSession(item.id)"
+        <input
+            v-model="sessionKeyword"
+            class="session-search"
+            placeholder="搜索会话标题或消息内容"
+            />
+
+            <div class="session-list">
+            <div
+                v-for="item in filteredSessions"
+                :key="item.id"
+                :class="['session-item', currentSessionId === item.id ? 'active' : '']"
+                @click="handleSwitchSession(item.id)"
             >
-            <div class="session-top">
+                <div class="session-top">
                 <template v-if="editingSessionId === item.id">
-                <input
+                    <input
                     v-model="editingTitle"
                     class="session-input"
                     @click.stop
                     @keydown.enter="handleRenameSession(item.id)"
                     @blur="handleRenameSession(item.id)"
-                />
+                    />
                 </template>
                 <template v-else>
-                <div class="session-title">{{ item.title }}</div>
+                    <div class="session-title">{{ item.title }}</div>
                 </template>
 
                 <div class="session-actions">
-                <span class="action-btn" @click.stop="handleStartRename(item)">改名</span>
-                <span class="action-btn delete" @click.stop="handleDeleteSession(item.id)">删除</span>
+                    <span class="action-btn" @click.stop="handleStartRename(item)">改名</span>
+                    <span class="action-btn delete" @click.stop="handleDeleteSession(item.id)">删除</span>
                 </div>
+                </div>
+                <div class="session-time">{{ formatTime(item.updatedAt) }}</div>
             </div>
-            <div class="session-time">{{ formatTime(item.updatedAt) }}</div>
-         </div>
+            </div>
       </aside>
 
       <main class="main">
@@ -99,7 +107,7 @@
 
 <script setup>
 import axios from 'axios'
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, nextTick,} from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { createSession, loadSessions, saveSessions } from './utils/session'
@@ -114,12 +122,26 @@ const currentSessionId = ref(sessions.value[0]?.id || '')
 const memoryList = ref([])
 const editingSessionId = ref('')
 const editingTitle = ref('')
+const sessionKeyword = ref('')
 
 const currentSession = computed(() => {
   return sessions.value.find(item => item.id === currentSessionId.value) || sessions.value[0]
 })
 
 const currentMessages = computed(() => currentSession.value?.messages || [])
+
+const filteredSessions = computed(() => {
+  const keyword = sessionKeyword.value.trim().toLowerCase()
+  if (!keyword) return sessions.value
+
+  return sessions.value.filter(item => {
+    const titleMatch = (item.title || '').toLowerCase().includes(keyword)
+    const messageMatch = (item.messages || []).some(msg =>
+      (msg.content || '').toLowerCase().includes(keyword)
+    )
+    return titleMatch || messageMatch
+  })
+})
 
 watch(
   sessions,
@@ -219,8 +241,39 @@ const fetchMemories = async () => {
   }
 }
 
+const copyCode = async code => {
+  try {
+    await navigator.clipboard.writeText(code || '')
+    window.alert('代码已复制')
+  } catch (e) {
+    console.error(e)
+    window.alert('复制失败')
+  }
+}
+
+const renderer = new marked.Renderer()
+
+renderer.code = ({ text, lang }) => {
+  const language = lang || 'text'
+  const escapedCode = (text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  return `
+    <div class="code-block-wrap">
+      <div class="code-block-header">
+        <span class="code-lang">${language}</span>
+        <button class="copy-code-btn" data-code="${escapedCode}">复制</button>
+      </div>
+      <pre><code class="language-${language}">${escapedCode}</code></pre>
+    </div>
+  `
+}
+
 const renderMarkdown = content => {
-  const rawHtml = marked.parse(content || '')
+  const rawHtml = marked.parse(content || '', { renderer })
   return DOMPurify.sanitize(rawHtml)
 }
 
@@ -228,6 +281,20 @@ const scrollToBottom = async () => {
   await nextTick()
   if (chatBoxRef.value) {
     chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight
+  }
+}
+
+const handleChatBoxClick = event => {
+  const target = event.target
+  if (target?.classList?.contains('copy-code-btn')) {
+    const code = target.getAttribute('data-code') || ''
+    copyCode(
+      code
+        .replace(/&quot;/g, '"')
+        .replace(/&gt;/g, '>')
+        .replace(/&lt;/g, '<')
+        .replace(/&amp;/g, '&')
+    )
   }
 }
 
@@ -401,6 +468,10 @@ watch(
 onMounted(() => {
   fetchMemories()
   scrollToBottom()
+
+  if (chatBoxRef.value) {
+    chatBoxRef.value.addEventListener('click', handleChatBoxClick)
+  }
 })
 </script>
 
@@ -410,21 +481,27 @@ onMounted(() => {
   background: #f5f7fb;
   padding: 24px;
   box-sizing: border-box;
+  display: flex;
 }
 .container {
-  width: 1200px;
+  width: 100%;
+  max-width: 1440px;
   margin: 0 auto;
   display: flex;
   gap: 20px;
+  align-items: stretch;
 }
 .sidebar {
   width: 280px;
+  flex-shrink: 0;
   background: #fff;
   border-radius: 16px;
   padding: 16px;
   box-sizing: border-box;
   height: calc(100vh - 48px);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .sidebar-header {
   display: flex;
@@ -445,8 +522,9 @@ onMounted(() => {
   cursor: pointer;
 }
 .session-list {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  height: calc(100% - 50px);
 }
 .session-item {
   padding: 12px;
@@ -472,16 +550,26 @@ onMounted(() => {
 }
 .main {
   flex: 1;
+  min-width: 0;
   background: #fff;
   border-radius: 16px;
   padding: 24px;
   box-sizing: border-box;
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 h1 {
   margin: 0 0 20px;
+  font-size: 40px;
+  line-height: 1.2;
+  color: #111827;
+  font-weight: 700;
 }
 .chat-box {
-  height: 520px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -517,16 +605,18 @@ h1 {
   margin-top: 16px;
   display: flex;
   gap: 12px;
+  align-items: stretch;
 }
 textarea {
   flex: 1;
-  min-height: 100px;
-  resize: vertical;
+  height: 96px;
+  resize: none;
   border: 1px solid #d1d5db;
   border-radius: 12px;
   padding: 12px;
   font-size: 14px;
   outline: none;
+  box-sizing: border-box;
 }
 button {
   border: none;
@@ -545,6 +635,7 @@ button:disabled {
 
 .memory-panel {
   width: 280px;
+  flex-shrink: 0;
   background: #fff;
   border-radius: 16px;
   padding: 16px;
@@ -673,5 +764,55 @@ button:disabled {
   border: 1px solid #e5e7eb;
   padding: 8px;
   text-align: left;
+}
+.session-search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.code-block-wrap {
+  margin: 8px 0;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 8px 12px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  font-size: 12px;
+}
+
+.code-lang {
+  opacity: 0.9;
+}
+
+.copy-code-btn {
+  border: none;
+  background: #374151;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.copy-code-btn:hover {
+  background: #4b5563;
+}
+
+.markdown-body :deep(.code-block-wrap pre) {
+  margin: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 </style>
