@@ -45,7 +45,14 @@
       </aside>
 
       <main class="main">
+        <div class="main-header">
         <h1>AI Companion Agent</h1>
+
+        <div class="export-actions">
+            <button class="export-btn" @click="exportCurrentSession('md')">导出 Markdown</button>
+            <button class="export-btn secondary" @click="exportCurrentSession('json')">导出 JSON</button>
+        </div>
+        </div>
 
        <div ref="chatBoxRef" class="chat-box">
         <div
@@ -294,6 +301,80 @@ const handleChatBoxClick = event => {
         .replace(/&gt;/g, '>')
         .replace(/&lt;/g, '<')
         .replace(/&amp;/g, '&')
+    )
+  }
+}
+
+const downloadFile = (filename, content, type = 'text/plain;charset=utf-8') => {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+const exportCurrentSession = format => {
+  if (!currentSession.value) return
+
+  const session = currentSession.value
+  const safeTitle = (session.title || '未命名会话').replace(/[\\/:*?"<>|]/g, '-')
+  const time = formatTime(session.updatedAt).replace(/[ :]/g, '-')
+
+  if (format === 'json') {
+    downloadFile(
+      `${safeTitle}-${time}.json`,
+      JSON.stringify(session, null, 2),
+      'application/json;charset=utf-8'
+    )
+    return
+  }
+
+  if (format === 'md') {
+    const lines = [
+      `# ${session.title || '未命名会话'}`,
+      '',
+      `- 会话ID：${session.id}`,
+      `- 更新时间：${new Date(session.updatedAt).toLocaleString()}`,
+      '',
+      '---',
+      '',
+    ]
+
+    session.messages.forEach(item => {
+      if (item.role === 'system') return
+
+      const roleName =
+        item.role === 'user'
+          ? '我'
+          : item.role === 'assistant'
+          ? 'AI'
+          : item.role
+
+      lines.push(`## ${roleName}`)
+      lines.push('')
+      lines.push(item.content || '')
+      lines.push('')
+    })
+
+    if (memoryList.value.length) {
+      lines.push('---')
+      lines.push('')
+      lines.push('## 会话记忆')
+      lines.push('')
+      memoryList.value.forEach(item => {
+        lines.push(`- ${item}`)
+      })
+      lines.push('')
+    }
+
+    downloadFile(
+      `${safeTitle}-${time}.md`,
+      lines.join('\n'),
+      'text/markdown;charset=utf-8'
     )
   }
 }
@@ -814,5 +895,37 @@ button:disabled {
   margin: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+}
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.main-header h1 {
+  margin: 0;
+}
+
+.export-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.export-btn {
+  border: none;
+  border-radius: 10px;
+  background: #111827;
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.export-btn.secondary {
+  background: #4b5563;
 }
 </style>
