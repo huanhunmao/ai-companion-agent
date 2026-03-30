@@ -59,7 +59,13 @@
       </div>
     </div>
 
-    <MessageList :current-messages="currentMessages" :loading="loading" />
+    <MessageList
+      :current-messages="currentMessages"
+      :loading="loading"
+      :on-copy-message="onCopyMessage"
+      :on-delete-message="onDeleteMessage"
+      :on-regenerate="onRegenerate"
+    />
     <MessageInput
       :loading="loading"
       :input-value="inputValue"
@@ -90,6 +96,18 @@ const props = defineProps({
   },
   promptDraft: {
     type: String,
+    required: true,
+  },
+  onCopyMessage: {
+    type: Function,
+    required: true,
+  },
+  onDeleteMessage: {
+    type: Function,
+    required: true,
+  },
+  onRegenerate: {
+    type: Function,
     required: true,
   },
 })

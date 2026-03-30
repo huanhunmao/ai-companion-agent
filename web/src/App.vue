@@ -28,6 +28,9 @@
         :loading="loading"
         :input-value="inputValue"
         :prompt-draft="promptDraft"
+        :on-copy-message="copyMessage"
+        :on-delete-message="handleDeleteMessage"
+        :on-regenerate="handleRegenerate"
         @update:input-value="inputValue = $event"
         @update:prompt-draft="promptDraft = $event"
         @send="sendMessage"
@@ -202,6 +205,83 @@ const handleResetPrompt = () => {
 
 const handleUsePromptTemplate = template => {
   promptDraft.value = template
+}
+
+const copyMessage = async content => {
+  try {
+    await navigator.clipboard.writeText(content || '')
+    window.alert('消息已复制')
+  } catch (e) {
+    console.error(e)
+    window.alert('复制失败')
+  }
+}
+
+const handleDeleteMessage = index => {
+  if (!currentSession.value) return
+
+  const nextMessages = currentSession.value.messages.filter((_, i) => i !== index)
+
+  sessions.value = sortSessions(
+    sessions.value.map(item =>
+      item.id === currentSessionId.value
+        ? {
+            ...item,
+            updatedAt: Date.now(),
+            messages: nextMessages,
+          }
+        : item
+    )
+  )
+}
+
+const handleRegenerate = async index => {
+  if (!currentSession.value || loading.value) return
+
+  const messages = [...currentSession.value.messages]
+  const current = messages[index]
+  const prev = messages[index - 1]
+
+  if (!current || current.role !== 'assistant') return
+  if (!prev || prev.role !== 'user') {
+    window.alert('只能重新生成上一条 AI 回复')
+    return
+  }
+
+  const nextMessages = messages.slice(0, index)
+
+  sessions.value = sortSessions(
+    sessions.value.map(item =>
+      item.id === currentSessionId.value
+        ? {
+            ...item,
+            updatedAt: Date.now(),
+            messages: nextMessages,
+          }
+        : item
+    )
+  )
+
+  loading.value = true
+  try {
+    await sendMessageStream(nextMessages)
+  } catch (error) {
+    updateCurrentSession(session => ({
+      ...session,
+      updatedAt: Date.now(),
+      messages: [
+        ...session.messages,
+        {
+          role: 'assistant',
+          content: '重新生成失败，请稍后再试。',
+        },
+      ],
+    }))
+    console.error(error)
+  } finally {
+    loading.value = false
+    abortController.value = null
+  }
 }
 
 const handleSwitchSession = id => {

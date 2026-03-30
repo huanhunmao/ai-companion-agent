@@ -1,7 +1,21 @@
 <template>
   <div ref="chatBoxRef" class="chat-box">
     <div v-for="(item, index) in currentMessages" :key="index" :class="['msg', item.role]">
-      <div class="role">{{ getRoleLabel(item.role) }}</div>
+      <div class="role-row">
+        <div class="role">{{ getRoleLabel(item.role) }}</div>
+
+        <div v-if="item.role !== 'system'" class="msg-actions">
+          <span class="msg-action-btn" @click="onCopyMessage?.(item.content)">复制</span>
+          <span class="msg-action-btn delete" @click="onDeleteMessage?.(index)">删除</span>
+          <span
+            v-if="item.role === 'assistant'"
+            class="msg-action-btn"
+            @click="onRegenerate?.(index)"
+          >
+            重新生成
+          </span>
+        </div>
+      </div>
       <div
         v-if="item.role === 'assistant'"
         class="content markdown-body"
@@ -29,6 +43,18 @@ const props = defineProps({
   },
   loading: {
     type: Boolean,
+    required: true,
+  },
+  onCopyMessage: {
+    type: Function,
+    required: true,
+  },
+  onDeleteMessage: {
+    type: Function,
+    required: true,
+  },
+  onRegenerate: {
+    type: Function,
     required: true,
   },
 })
@@ -155,6 +181,36 @@ onUnmounted(() => {
   font-size: 12px;
   color: #666;
   margin-bottom: 6px;
+}
+
+.role-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.msg-action-btn {
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  user-select: none;
+}
+
+.msg-action-btn:hover {
+  color: #111827;
+}
+
+.msg-action-btn.delete:hover {
+  color: #dc2626;
 }
 
 .content {
