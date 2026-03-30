@@ -4,6 +4,7 @@ export function createSession(title = '新对话') {
   return {
     id: crypto.randomUUID(),
     title,
+    pinned: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     messages: [
@@ -33,7 +34,12 @@ export function loadSessions() {
       saveSessions([first])
       return [first]
     }
-    return sessions
+    
+    const normalized = sessions.map(item => ({
+      pinned: false,
+      ...item,
+    }))
+    return sortSessions(normalized)
   } catch (e) {
     const first = createSession()
     saveSessions([first])
@@ -43,4 +49,17 @@ export function loadSessions() {
 
 export function saveSessions(sessions) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+}
+
+export function sortSessions(list = []) {
+  return [...list].sort((a, b) => {
+    const aPinned = a.pinned ? 1 : 0
+    const bPinned = b.pinned ? 1 : 0
+
+    if (aPinned !== bPinned) {
+      return bPinned - aPinned
+    }
+
+    return (b.updatedAt || 0) - (a.updatedAt || 0)
+  })
 }
