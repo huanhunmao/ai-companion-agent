@@ -306,6 +306,8 @@ const emit = defineEmits([
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fafafa;
+  max-height: 260px;
+  overflow: auto;
 }
 
 .prompt-panel-header {
@@ -344,7 +346,8 @@ const emit = defineEmits([
 
 .prompt-textarea {
   width: 100%;
-  min-height: 96px;
+  min-height: 72px;
+  max-height: 140px;
   resize: vertical;
   box-sizing: border-box;
   border: 1px solid #d1d5db;
@@ -384,6 +387,8 @@ const emit = defineEmits([
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fafafa;
+  max-height: 240px;
+  overflow: auto;
 }
 
 .params-panel-header {
