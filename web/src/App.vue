@@ -51,7 +51,19 @@
         @save-params="handleSaveParams"
       />
 
-      <MemoryPanel :memory-list="memoryList" />
+      <MemoryPanel
+        :memory-list="memoryList"
+        :memory-draft="memoryDraft"
+        :editing-memory-index="editingMemoryIndex"
+        :editing-memory-value="editingMemoryValue"
+        @update:memory-draft="memoryDraft = $event"
+        @update:editing-memory-value="editingMemoryValue = $event"
+        @add="handleAddMemory"
+        @delete="handleDeleteMemory"
+        @start-edit="handleStartEditMemory"
+        @save-edit="handleSaveEditMemory"
+        @cancel-edit="handleCancelEditMemory"
+      />
     </div>
   </div>
 </template>
@@ -81,6 +93,9 @@ const temperatureDraft = ref(0.7)
 const topPDraft = ref(1)
 const maxTokensDraft = ref(1200)
 const quotedMessage = ref(null)
+const memoryDraft = ref('')
+const editingMemoryIndex = ref(-1)
+const editingMemoryValue = ref('')
 
 const currentSession = computed(() => {
   return sessions.value.find(item => item.id === currentSessionId.value) || sessions.value[0]
@@ -431,6 +446,62 @@ const fetchMemories = async () => {
     memoryList.value = []
     console.error(error)
   }
+}
+
+const saveMemories = async nextMemories => {
+  if (!currentSessionId.value) return
+
+  try {
+    const res = await axios.put(`http://127.0.0.1:8080/api/memory/${currentSessionId.value}`, {
+      memories: nextMemories,
+    })
+    memoryList.value = res.data.memories || []
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const handleAddMemory = async () => {
+  const text = memoryDraft.value.trim()
+  if (!text) return
+
+  await saveMemories([...memoryList.value, text])
+  memoryDraft.value = ''
+}
+
+const handleDeleteMemory = async index => {
+  const nextMemories = memoryList.value.filter((_, i) => i !== index)
+  await saveMemories(nextMemories)
+
+  if (editingMemoryIndex.value === index) {
+    editingMemoryIndex.value = -1
+    editingMemoryValue.value = ''
+  }
+}
+
+const handleStartEditMemory = (item, index) => {
+  editingMemoryIndex.value = index
+  editingMemoryValue.value = item
+}
+
+const handleSaveEditMemory = async index => {
+  const text = editingMemoryValue.value.trim()
+  const nextMemories = [...memoryList.value]
+
+  if (!text) {
+    nextMemories.splice(index, 1)
+  } else {
+    nextMemories[index] = text
+  }
+
+  await saveMemories(nextMemories)
+  editingMemoryIndex.value = -1
+  editingMemoryValue.value = ''
+}
+
+const handleCancelEditMemory = () => {
+  editingMemoryIndex.value = -1
+  editingMemoryValue.value = ''
 }
 
 const downloadFile = (filename, content, type = 'text/plain;charset=utf-8') => {

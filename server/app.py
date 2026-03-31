@@ -11,7 +11,12 @@ from openai import OpenAI
 
 from typing import List, Literal, Optional
 from fastapi import FastAPI, HTTPException
-from memory_store import get_session_memories, add_session_memories, delete_session_memories
+from memory_store import (
+    get_session_memories,
+    add_session_memories,
+    delete_session_memories,
+    set_session_memories,
+)
 
 load_dotenv()
 
@@ -50,6 +55,9 @@ class ChatResponse(BaseModel):
     reply: str
 
 class MemoryResponse(BaseModel):
+    memories: List[str]
+
+class UpdateMemoryRequest(BaseModel):
     memories: List[str]
 
 def build_memory_prompt(memories: List[str]) -> str:
@@ -221,6 +229,14 @@ def chat_stream(req: ChatRequest):
 def get_memory(session_id: str):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id不能为空")
+    return MemoryResponse(memories=get_session_memories(session_id))
+
+@app.put("/api/memory/{session_id}", response_model=MemoryResponse)
+def update_memory(session_id: str, req: UpdateMemoryRequest):
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id不能为空")
+
+    set_session_memories(session_id, req.memories)
     return MemoryResponse(memories=get_session_memories(session_id))
 
 @app.delete("/api/session/{session_id}")

@@ -52,3 +52,19 @@ def delete_session_memories(session_id: str):
     if session_id in data:
         del data[session_id]
         _save(data)
+
+
+def set_session_memories(session_id: str, memories: List[str]):
+    if not session_id:
+        return
+
+    data = _load()
+    cleaned = []
+
+    for item in memories or []:
+        text = str(item).strip()
+        if text and text not in cleaned:
+            cleaned.append(text)
+
+    data[session_id] = cleaned[:50]
+    _save(data)
