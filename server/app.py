@@ -1,5 +1,7 @@
 import os
 import json
+import time
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from dotenv import load_dotenv
@@ -48,6 +50,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    meta: Optional[dict] = None
 
 class MemoryResponse(BaseModel):
     memories: List[str]
@@ -150,6 +153,9 @@ def chat(req: ChatRequest):
 
     print("session_memories:", session_memories)
 
+    start_time = time.perf_counter()
+    meta = None
+
     try:
         client, config = create_client_by_model(req.model or DEFAULT_MODEL_NAME)
 
@@ -161,9 +167,37 @@ def chat(req: ChatRequest):
             max_tokens=req.max_tokens or 1200,
         )
         reply = completion.choices[0].message.content or ""
+
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        usage = getattr(completion, "usage", None)
+
+        meta = {
+            "provider": config["provider"],
+            "model": req.model or DEFAULT_MODEL_NAME,
+            "duration_ms": duration_ms,
+            "reply_at": datetime.now().isoformat(),
+            "usage": {
+                "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
+                "completion_tokens": getattr(usage, "completion_tokens", None) if usage else None,
+                "total_tokens": getattr(usage, "total_tokens", None) if usage else None,
+            },
+        }
     except Exception as e:
         print("chat error:", e)
         reply = "AI服务异常，请稍后再试"
+
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        meta = {
+            "provider": None,
+            "model": req.model or DEFAULT_MODEL_NAME,
+            "duration_ms": duration_ms,
+            "reply_at": datetime.now().isoformat(),
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
 
     if req.session_id:
         latest_user_text = ""
@@ -180,7 +214,7 @@ def chat(req: ChatRequest):
             print("new_memories:", new_memories)
             add_session_memories(req.session_id, new_memories)
 
-    return ChatResponse(reply=reply)
+    return ChatResponse(reply=reply, meta=meta)
 
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest):
@@ -195,9 +229,13 @@ def chat_stream(req: ChatRequest):
 
     def generate():
         full_reply = ""
+        start_time = time.perf_counter()
+        provider = None
+        model_name = req.model or DEFAULT_MODEL_NAME
 
         try:
-            client, config = create_client_by_model(req.model or DEFAULT_MODEL_NAME)
+            client, config = create_client_by_model(model_name)
+            provider = config["provider"]
 
             stream = client.chat.completions.create(
                 model=config["model"],
@@ -230,11 +268,24 @@ def chat_stream(req: ChatRequest):
             print("stream latest_user_text:", latest_user_text)
 
             if latest_user_text:
-                new_memories = extract_user_memories(latest_user_text, req.model or DEFAULT_MODEL_NAME)
+                new_memories = extract_user_memories(latest_user_text, model_name)
                 print("stream new_memories:", new_memories)
                 add_session_memories(req.session_id, new_memories)
 
-        yield f"data: {json.dumps({'type': 'done', 'content': full_reply}, ensure_ascii=False)}\n\n"
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        meta = {
+            "provider": provider,
+            "model": model_name,
+            "duration_ms": duration_ms,
+            "reply_at": datetime.now().isoformat(),
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+
+        yield f"data: {json.dumps({'type': 'done', 'content': full_reply, 'meta': meta}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

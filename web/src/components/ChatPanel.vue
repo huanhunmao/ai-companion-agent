@@ -149,6 +149,27 @@
       </div>
     </div>
 
+    <div v-if="currentReplyMeta" class="reply-meta-bar">
+      <div class="reply-meta-item">
+        <span class="reply-meta-label">模型</span>
+        <span class="reply-meta-value">{{ currentReplyMeta.model || '-' }}</span>
+      </div>
+      <div class="reply-meta-item">
+        <span class="reply-meta-label">提供方</span>
+        <span class="reply-meta-value">{{ currentReplyMeta.provider || '-' }}</span>
+      </div>
+      <div class="reply-meta-item">
+        <span class="reply-meta-label">耗时</span>
+        <span class="reply-meta-value">{{ currentReplyMeta.duration_ms }} ms</span>
+      </div>
+      <div class="reply-meta-item">
+        <span class="reply-meta-label">时间</span>
+        <span class="reply-meta-value">
+          {{ new Date(currentReplyMeta.reply_at).toLocaleString() }}
+        </span>
+      </div>
+    </div>
+
     <MessageList
       :current-messages="currentMessages"
       :loading="loading"
@@ -223,6 +244,10 @@ const props = defineProps({
   modelDraft: {
     type: String,
     required: true,
+  },
+  currentReplyMeta: {
+    type: Object,
+    default: null,
   },
   quotedMessage: {
     type: Object,
@@ -461,6 +486,36 @@ const emit = defineEmits([
 .prompt-btn.small {
   padding: 6px 10px;
   font-size: 12px;
+}
+
+.reply-meta-bar {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.reply-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reply-meta-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.reply-meta-value {
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+  word-break: break-all;
 }
 
 .quote-bar {

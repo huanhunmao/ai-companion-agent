@@ -16,6 +16,7 @@ export function createSession(title = '新对话', mode = 'companion') {
     topP: 1,
     maxTokens: 1200,
     memoryEnabled: true,
+    lastReplyMeta: null,
     pinned: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -62,6 +63,7 @@ export function loadSessions() {
         topP: 1,
         maxTokens: 1200,
         memoryEnabled: true,
+        lastReplyMeta: null,
         pinned: false,
         ...item,
       }

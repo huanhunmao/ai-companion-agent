@@ -34,6 +34,7 @@
         :memory-enabled-draft="memoryEnabledDraft"
         :model-options="MODEL_OPTIONS"
         :model-draft="modelDraft"
+        :current-reply-meta="currentReplyMeta"
         :quoted-message="quotedMessage"
         :on-copy-message="copyMessage"
         :on-delete-message="handleDeleteMessage"
@@ -131,6 +132,10 @@ const currentMemoryEnabled = computed(() => {
 
 const currentModel = computed(() => {
   return currentSession.value?.model || MODEL_OPTIONS[0].value
+})
+
+const currentReplyMeta = computed(() => {
+  return currentSession.value?.lastReplyMeta || null
 })
 
 const filteredSessions = computed(() => {
@@ -816,6 +821,17 @@ const sendMessageStream = async messages => {
         }
 
         if (payload.type === 'done') {
+          sessions.value = sortSessions(
+            sessions.value.map(item =>
+              item.id === currentSessionId.value
+                ? {
+                    ...item,
+                    lastReplyMeta: payload.meta || null,
+                    updatedAt: Date.now(),
+                  }
+                : item
+            )
+          )
           await fetchMemories()
         }
       } catch (e) {
