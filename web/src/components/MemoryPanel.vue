@@ -84,6 +84,7 @@ const emit = defineEmits([
   box-sizing: border-box;
   height: calc(100vh - 48px);
   overflow-y: auto;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
 .memory-header {
@@ -167,5 +168,21 @@ const emit = defineEmits([
 
 .memory-action.delete:hover {
   color: #dc2626;
+}
+
+@media (max-width: 960px) {
+  .memory-panel {
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 104px);
+  }
+
+  .memory-editor {
+    flex-direction: column;
+  }
+
+  .memory-add-btn {
+    height: 44px;
+  }
 }
 </style>

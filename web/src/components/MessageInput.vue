@@ -71,4 +71,20 @@ button:disabled {
   width: 100px;
   background: #ef4444;
 }
+
+@media (max-width: 960px) {
+  .input-area {
+    flex-direction: column;
+  }
+
+  textarea {
+    height: 120px;
+  }
+
+  .input-area button,
+  .stop-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
 </style>

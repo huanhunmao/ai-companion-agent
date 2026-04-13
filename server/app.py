@@ -1,15 +1,25 @@
 import os
 import json
 import time
+from pathlib import Path
 from datetime import datetime
 from typing import List, Literal, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from fastapi import HTTPException
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+try:
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+except ImportError:
+    ProxyHeadersMiddleware = None
+
+from auth_deps import require_app_key
 from llm_clients import create_client_by_model
 from memory_store import (
     get_session_memories,
@@ -21,14 +31,37 @@ from memory_store import (
 load_dotenv()
 
 app = FastAPI()
+WEB_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+# 信任反向代理（Nginx / 云平台）转发的真实客户端 IP，便于限流
+if ProxyHeadersMiddleware is not None:
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
+_cors_raw = (os.getenv("CORS_ORIGINS") or "").strip()
+if _cors_raw:
+    _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+else:
+    _cors_origins = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "moonshot/kimi-k2-0905-preview")
 
@@ -52,11 +85,14 @@ class ChatResponse(BaseModel):
     reply: str
     meta: Optional[dict] = None
 
+
 class MemoryResponse(BaseModel):
     memories: List[str]
 
+
 class UpdateMemoryRequest(BaseModel):
     memories: List[str]
+
 
 def build_memory_prompt(memories: List[str]) -> str:
     if not memories:
@@ -121,6 +157,7 @@ def extract_user_memories(user_text: str, model_name: Optional[str] = None) -> L
         print("extract_user_memories error:", e)
         return []
 
+
 def build_final_messages(messages: List[dict], session_id: str = "", memory_enabled: bool = True):
     session_memories = get_session_memories(session_id or "") if memory_enabled else []
     memory_prompt = build_memory_prompt(session_memories) if memory_enabled else ""
@@ -137,13 +174,19 @@ def build_final_messages(messages: List[dict], session_id: str = "", memory_enab
 
     return final_messages, session_memories
 
+
 @app.get("/health")
 def health():
     return {"ok": True}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
+@limiter.limit("60/minute")
+def chat(
+    request: Request,
+    req: ChatRequest,
+    _: None = Depends(require_app_key),
+):
     messages = [m.model_dump() for m in req.messages]
     final_messages, session_memories = build_final_messages(
         messages,
@@ -216,8 +259,14 @@ def chat(req: ChatRequest):
 
     return ChatResponse(reply=reply, meta=meta)
 
+
 @app.post("/api/chat/stream")
-def chat_stream(req: ChatRequest):
+@limiter.limit("60/minute")
+def chat_stream(
+    request: Request,
+    req: ChatRequest,
+    _: None = Depends(require_app_key),
+):
     messages = [m.model_dump() for m in req.messages]
     final_messages, session_memories = build_final_messages(
         messages,
@@ -289,24 +338,61 @@ def chat_stream(req: ChatRequest):
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
+
 @app.get("/api/memory/{session_id}", response_model=MemoryResponse)
-def get_memory(session_id: str):
+@limiter.limit("120/minute")
+def get_memory(
+    request: Request,
+    session_id: str,
+    _: None = Depends(require_app_key),
+):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id不能为空")
     return MemoryResponse(memories=get_session_memories(session_id))
 
+
 @app.put("/api/memory/{session_id}", response_model=MemoryResponse)
-def update_memory(session_id: str, req: UpdateMemoryRequest):
+@limiter.limit("120/minute")
+def update_memory(
+    request: Request,
+    session_id: str,
+    req: UpdateMemoryRequest,
+    _: None = Depends(require_app_key),
+):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id不能为空")
 
     set_session_memories(session_id, req.memories)
     return MemoryResponse(memories=get_session_memories(session_id))
 
+
 @app.delete("/api/session/{session_id}")
-def delete_session(session_id: str):
+@limiter.limit("120/minute")
+def delete_session(
+    request: Request,
+    session_id: str,
+    _: None = Depends(require_app_key),
+):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id不能为空")
 
     delete_session_memories(session_id)
     return {"ok": True}
+
+
+if WEB_DIST_DIR.exists():
+    assets_dir = WEB_DIST_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="web-assets")
+
+    @app.get("/", include_in_schema=False)
+    def serve_index():
+        return FileResponse(WEB_DIST_DIR / "index.html")
+
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_spa(full_path: str):
+        candidate = WEB_DIST_DIR / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(WEB_DIST_DIR / "index.html")

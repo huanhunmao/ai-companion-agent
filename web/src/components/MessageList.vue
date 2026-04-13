@@ -333,4 +333,24 @@ onUnmounted(() => {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
+
+@media (max-width: 960px) {
+  .chat-box {
+    padding: 12px;
+  }
+
+  .role-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .msg-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .content {
+    max-width: 100%;
+  }
+}
 </style>

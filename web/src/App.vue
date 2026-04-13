@@ -1,84 +1,130 @@
 <template>
   <div class="page">
     <div class="container">
-      <SessionSidebar
-        :sessions="filteredSessions"
-        :current-session-id="currentSessionId"
-        :editing-session-id="editingSessionId"
-        :editing-title="editingTitle"
-        :session-keyword="sessionKeyword"
-        :format-time="formatTime"
-        :persona-map="PERSONA_MAP"
-        :persona-options="PERSONA_OPTIONS"
-        :create-mode="createMode"
-        @create="handleCreateSession"
-        @switch="handleSwitchSession"
-        @start-rename="handleStartRename"
-        @rename="handleRenameSession"
-        @toggle-pin="handleTogglePinSession"
-        @delete="handleDeleteSession"
-        @change-mode="handleChangeSessionMode"
-        @update:editing-title="editingTitle = $event"
-        @update:session-keyword="sessionKeyword = $event"
-        @update:create-mode="createMode = $event"
-      />
+      <div class="mobile-nav">
+        <button
+          :class="['mobile-nav-btn', activeMobilePanel === 'chat' ? 'active' : '']"
+          @click="activeMobilePanel = 'chat'"
+        >
+          对话
+        </button>
+        <button
+          :class="['mobile-nav-btn', activeMobilePanel === 'sessions' ? 'active' : '']"
+          @click="activeMobilePanel = 'sessions'"
+        >
+          会话
+        </button>
+        <button
+          :class="['mobile-nav-btn', activeMobilePanel === 'memory' ? 'active' : '']"
+          @click="activeMobilePanel = 'memory'"
+        >
+          记忆
+        </button>
+      </div>
 
-      <ChatPanel
-        :current-messages="currentMessages"
-        :loading="loading"
-        :input-value="inputValue"
-        :prompt-draft="promptDraft"
-        :temperature-draft="temperatureDraft"
-        :top-p-draft="topPDraft"
-        :max-tokens-draft="maxTokensDraft"
-        :memory-enabled-draft="memoryEnabledDraft"
-        :model-options="MODEL_OPTIONS"
-        :model-draft="modelDraft"
-        :current-reply-meta="currentReplyMeta"
-        :quoted-message="quotedMessage"
-        :on-copy-message="copyMessage"
-        :on-delete-message="handleDeleteMessage"
-        :on-quote-message="handleQuoteMessage"
-        :on-regenerate="handleRegenerate"
-        :on-clear-quoted="clearQuotedMessage"
-        @update:input-value="inputValue = $event"
-        @update:prompt-draft="promptDraft = $event"
-        @update:temperature-draft="temperatureDraft = $event"
-        @update:top-p-draft="topPDraft = $event"
-        @update:max-tokens-draft="maxTokensDraft = $event"
-        @update:memory-enabled-draft="memoryEnabledDraft = $event"
-        @update:model-draft="modelDraft = $event"
-        @send="sendMessage"
-        @abort="abortController?.abort()"
-        @export="exportCurrentSession"
-        @save-prompt="handleSavePrompt"
-        @reset-prompt="handleResetPrompt"
-        @use-prompt-template="handleUsePromptTemplate"
-        @save-params="handleSaveParams"
-        @save-memory-setting="handleSaveMemorySetting"
-        @save-model-setting="handleSaveModelSetting"
-      />
+      <div
+        :class="[
+          'panel-wrap',
+          'sidebar-wrap',
+          activeMobilePanel === 'sessions' ? 'mobile-active' : '',
+        ]"
+      >
+        <SessionSidebar
+          :sessions="filteredSessions"
+          :current-session-id="currentSessionId"
+          :editing-session-id="editingSessionId"
+          :editing-title="editingTitle"
+          :session-keyword="sessionKeyword"
+          :format-time="formatTime"
+          :persona-map="PERSONA_MAP"
+          :persona-options="PERSONA_OPTIONS"
+          :create-mode="createMode"
+          @create="handleCreateSession"
+          @switch="handleSwitchSession"
+          @start-rename="handleStartRename"
+          @rename="handleRenameSession"
+          @toggle-pin="handleTogglePinSession"
+          @delete="handleDeleteSession"
+          @change-mode="handleChangeSessionMode"
+          @update:editing-title="editingTitle = $event"
+          @update:session-keyword="sessionKeyword = $event"
+          @update:create-mode="createMode = $event"
+        />
+      </div>
 
-      <MemoryPanel
-        :memory-list="memoryList"
-        :memory-draft="memoryDraft"
-        :editing-memory-index="editingMemoryIndex"
-        :editing-memory-value="editingMemoryValue"
-        @update:memory-draft="memoryDraft = $event"
-        @update:editing-memory-value="editingMemoryValue = $event"
-        @add="handleAddMemory"
-        @delete="handleDeleteMemory"
-        @start-edit="handleStartEditMemory"
-        @save-edit="handleSaveEditMemory"
-        @cancel-edit="handleCancelEditMemory"
-      />
+      <div
+        :class="[
+          'panel-wrap',
+          'chat-wrap',
+          activeMobilePanel === 'chat' ? 'mobile-active' : '',
+        ]"
+      >
+        <ChatPanel
+          :current-messages="currentMessages"
+          :loading="loading"
+          :input-value="inputValue"
+          :prompt-draft="promptDraft"
+          :temperature-draft="temperatureDraft"
+          :top-p-draft="topPDraft"
+          :max-tokens-draft="maxTokensDraft"
+          :memory-enabled-draft="memoryEnabledDraft"
+          :model-options="MODEL_OPTIONS"
+          :model-draft="modelDraft"
+          :current-reply-meta="currentReplyMeta"
+          :quoted-message="quotedMessage"
+          :on-copy-message="copyMessage"
+          :on-delete-message="handleDeleteMessage"
+          :on-quote-message="handleQuoteMessage"
+          :on-regenerate="handleRegenerate"
+          :on-clear-quoted="clearQuotedMessage"
+          @update:input-value="inputValue = $event"
+          @update:prompt-draft="promptDraft = $event"
+          @update:temperature-draft="temperatureDraft = $event"
+          @update:top-p-draft="topPDraft = $event"
+          @update:max-tokens-draft="maxTokensDraft = $event"
+          @update:memory-enabled-draft="memoryEnabledDraft = $event"
+          @update:model-draft="modelDraft = $event"
+          @send="sendMessage"
+          @abort="abortController?.abort()"
+          @export="exportCurrentSession"
+          @save-prompt="handleSavePrompt"
+          @reset-prompt="handleResetPrompt"
+          @use-prompt-template="handleUsePromptTemplate"
+          @save-params="handleSaveParams"
+          @save-memory-setting="handleSaveMemorySetting"
+          @save-model-setting="handleSaveModelSetting"
+        />
+      </div>
+
+      <div
+        :class="[
+          'panel-wrap',
+          'memory-wrap',
+          activeMobilePanel === 'memory' ? 'mobile-active' : '',
+        ]"
+      >
+        <MemoryPanel
+          :memory-list="memoryList"
+          :memory-draft="memoryDraft"
+          :editing-memory-index="editingMemoryIndex"
+          :editing-memory-value="editingMemoryValue"
+          @update:memory-draft="memoryDraft = $event"
+          @update:editing-memory-value="editingMemoryValue = $event"
+          @add="handleAddMemory"
+          @delete="handleDeleteMemory"
+          @start-edit="handleStartEditMemory"
+          @save-edit="handleSaveEditMemory"
+          @cancel-edit="handleCancelEditMemory"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import axios from 'axios'
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { apiUrl, getApiHeaders } from './apiClient'
 import { createSession, loadSessions, saveSessions, sortSessions } from './utils/session'
 import { PERSONA_MAP, PERSONA_OPTIONS } from './utils/persona'
 import { MODEL_OPTIONS } from './utils/models'
@@ -107,6 +153,9 @@ const editingMemoryIndex = ref(-1)
 const editingMemoryValue = ref('')
 const memoryEnabledDraft = ref(true)
 const modelDraft = ref(MODEL_OPTIONS[0].value)
+const activeMobilePanel = ref('chat')
+let mobileMediaQuery = null
+let detachMobileMediaListener = null
 
 const currentSession = computed(() => {
   return sessions.value.find(item => item.id === currentSessionId.value) || sessions.value[0]
@@ -182,6 +231,7 @@ const handleCreateSession = () => {
   const session = createSession(`新对话 ${sessions.value.length + 1}`, createMode.value)
   sessions.value = sortSessions([session, ...sessions.value])
   currentSessionId.value = session.id
+  activeMobilePanel.value = 'chat'
 }
 
 const resetSystemMessageByMode = (messages = [], mode = 'companion', prompt) => {
@@ -423,6 +473,7 @@ const handleRegenerate = async index => {
 
 const handleSwitchSession = id => {
   currentSessionId.value = id
+  activeMobilePanel.value = 'chat'
 }
 
 const handleStartRename = item => {
@@ -477,7 +528,7 @@ const handleDeleteSession = async id => {
   if (!ok) return
 
   try {
-    await axios.delete(`http://127.0.0.1:8080/api/session/${id}`)
+    await axios.delete(apiUrl(`/api/session/${id}`), { headers: getApiHeaders() })
   } catch (error) {
     console.error(error)
   }
@@ -495,7 +546,9 @@ const handleDeleteSession = async id => {
 const fetchMemories = async () => {
   if (!currentSessionId.value) return
   try {
-    const res = await axios.get(`http://127.0.0.1:8080/api/memory/${currentSessionId.value}`)
+    const res = await axios.get(apiUrl(`/api/memory/${currentSessionId.value}`), {
+      headers: getApiHeaders(),
+    })
     memoryList.value = res.data.memories || []
   } catch (error) {
     memoryList.value = []
@@ -507,9 +560,11 @@ const saveMemories = async nextMemories => {
   if (!currentSessionId.value) return
 
   try {
-    const res = await axios.put(`http://127.0.0.1:8080/api/memory/${currentSessionId.value}`, {
-      memories: nextMemories,
-    })
+    const res = await axios.put(
+      apiUrl(`/api/memory/${currentSessionId.value}`),
+      { memories: nextMemories },
+      { headers: getApiHeaders({ 'Content-Type': 'application/json' }) }
+    )
     memoryList.value = res.data.memories || []
   } catch (error) {
     console.error(error)
@@ -723,11 +778,11 @@ const sendMessageStream = async messages => {
     return Boolean((item.content || '').trim())
   })
 
-  const res = await fetch('http://127.0.0.1:8080/api/chat/stream', {
+  const res = await fetch(apiUrl('/api/chat/stream'), {
     method: 'POST',
-    headers: {
+    headers: getApiHeaders({
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify({
       messages: cleanedMessages,
       session_id: currentSession.value.id,
@@ -881,23 +936,121 @@ watch(
 
 onMounted(() => {
   fetchMemories()
+  const syncPanel = event => {
+    if (!event.matches) {
+      activeMobilePanel.value = 'chat'
+    }
+  }
+
+  mobileMediaQuery = window.matchMedia('(max-width: 960px)')
+  syncPanel(mobileMediaQuery)
+  mobileMediaQuery.addEventListener('change', syncPanel)
+  detachMobileMediaListener = () => {
+    mobileMediaQuery?.removeEventListener('change', syncPanel)
+  }
+})
+
+onUnmounted(() => {
+  detachMobileMediaListener?.()
 })
 </script>
 
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #f5f7fb;
+  background:
+    radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(251, 191, 36, 0.18), transparent 24%),
+    #f5f7fb;
   padding: 24px;
   box-sizing: border-box;
   display: flex;
 }
+
 .container {
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   align-items: stretch;
+}
+
+.panel-wrap {
+  display: flex;
+}
+
+.sidebar-wrap,
+.memory-wrap {
+  flex: 0 0 280px;
+}
+
+.chat-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .container {
+    max-width: 100%;
+  }
+
+  .sidebar-wrap,
+  .memory-wrap {
+    flex-basis: 240px;
+  }
+}
+
+@media (max-width: 960px) {
+  .page {
+    padding: 12px;
+  }
+
+  .container {
+    display: block;
+  }
+
+  .mobile-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 10px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .mobile-nav-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: #334155;
+  }
+
+  .mobile-nav-btn.active {
+    background: #111827;
+    color: #fff;
+  }
+
+  .panel-wrap {
+    display: none;
+  }
+
+  .panel-wrap.mobile-active {
+    display: flex;
+  }
 }
 </style>

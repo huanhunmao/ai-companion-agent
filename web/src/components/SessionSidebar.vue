@@ -152,6 +152,7 @@ const handleCreateModeChange = event => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
 .sidebar-header {
@@ -317,5 +318,28 @@ const handleCreateModeChange = event => {
 .session-time {
   font-size: 12px;
   color: #6b7280;
+}
+
+@media (max-width: 960px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 104px);
+  }
+
+  .session-top,
+  .session-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .session-actions {
+    flex-wrap: wrap;
+  }
+
+  .session-mode-select {
+    width: 100%;
+    max-width: none;
+  }
 }
 </style>

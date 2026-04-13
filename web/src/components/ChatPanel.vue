@@ -83,7 +83,7 @@
             <button class="prompt-btn small" @click="emit('save-model-setting')">保存模型设置</button>
           </div>
 
-          <div class="param-tip">不同会话可绑定不同模型提供方</div>
+          <div class="param-tip">不同会话可绑定不同模型提供方（只配置了 Moonshot 测试考虑为了成本💰）</div>
         </div>
 
         <div class="param-item">
@@ -307,6 +307,7 @@ const emit = defineEmits([
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
 .main-header {
@@ -557,5 +558,49 @@ const emit = defineEmits([
 
 .quote-close:hover {
   color: #111827;
+}
+
+@media (max-width: 1200px) {
+  .params-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .main-header h1 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 960px) {
+  .main {
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 104px);
+    padding: 16px;
+  }
+
+  .main-header,
+  .prompt-panel-header,
+  .params-panel-header,
+  .quote-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .main-header h1 {
+    font-size: 26px;
+  }
+
+  .prompt-panel-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .params-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-btn {
+    min-height: 40px;
+  }
 }
 </style>

@@ -163,6 +163,81 @@ npm run dev
 
 ---
 
+## 📱 移动端适配
+
+当前版本已经支持响应式布局：
+
+* 桌面端保持三栏结构：会话 / 聊天 / 记忆
+* 平板和手机端自动切换为分区视图
+* 顶部提供「对话 / 会话 / 记忆」切换按钮，避免横向溢出
+* 输入框、消息操作区、参数面板都会在小屏下自动换行
+
+---
+
+## 🌍 上线部署
+
+这个项目现在支持一种很实用的部署方式：
+
+* 前端先执行 `vite build`
+* 后端 FastAPI 直接托管 `web/dist`
+* 用户访问同一个域名即可使用页面和 API
+
+### 1️⃣ 构建前端
+
+```bash
+cd web
+npm install
+npm run build
+```
+
+构建完成后会生成：
+
+```text
+web/dist/
+```
+
+### 2️⃣ 启动生产后端
+
+```bash
+cd server
+python -m pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+如果 `web/dist` 存在，FastAPI 会自动托管静态前端页面。
+
+此时你可以直接访问：
+
+```text
+http://你的服务器IP:8000/
+```
+
+### 3️⃣ 推荐环境变量
+
+```env
+MOONSHOT_API_KEY=你的API_KEY
+MOONSHOT_BASE_URL=https://api.moonshot.cn/v1
+MOONSHOT_MODEL=kimi-k2-0905-preview
+DEFAULT_MODEL_NAME=moonshot/kimi-k2-0905-preview
+
+# 如果你希望前端跨域访问后端，可配置：
+CORS_ORIGINS=https://your-domain.com
+
+# 如果你给应用增加访问保护，可配置：
+APP_API_KEY=your-app-key
+```
+
+### 4️⃣ 反向代理建议
+
+推荐使用 Nginx 或云平台的反向代理，把 80/443 转发到 `8000`：
+
+* `https://your-domain.com` -> FastAPI
+* FastAPI 同时返回前端页面和 `/api/*` 接口
+
+这样部署最简单，也最适合先把产品发到线上给大家试用。
+
+---
+
 ## 🧩 核心设计思路
 
 ### 1️⃣ 多轮对话

@@ -1,8 +1,10 @@
 # Python
 server/venv/
+server/.venv/
 __pycache__/
 *.pyc
 .env
+server/*.lock
 
 # Node
 node_modules/
