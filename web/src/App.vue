@@ -132,6 +132,13 @@ import SessionSidebar from './components/SessionSidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import MemoryPanel from './components/MemoryPanel.vue'
 
+const TRANSIENT_ASSISTANT_MESSAGES = new Set([
+  '请求失败，请检查后端或API Key配置。',
+  '重新生成失败，请稍后再试。',
+  'AI服务异常，请稍后再试',
+  'AI服务异常，请稍后再试。',
+])
+
 const inputValue = ref('')
 const loading = ref(false)
 const abortController = ref(null)
@@ -723,6 +730,11 @@ const buildMessagesForRequest = (messages = []) => {
   return nextMessages
 }
 
+const isTransientAssistantMessage = item => {
+  if (!item || item.role !== 'assistant') return false
+  return TRANSIENT_ASSISTANT_MESSAGES.has((item.content || '').trim())
+}
+
 const sendMessage = async () => {
   const text = inputValue.value.trim()
   if (!text || loading.value || !currentSession.value) return
@@ -774,6 +786,7 @@ const sendMessageStream = async messages => {
 
   const cleanedMessages = (messages || []).filter(item => {
     if (!item) return false
+    if (isTransientAssistantMessage(item)) return false
     if (item.role !== 'assistant') return true
     return Boolean((item.content || '').trim())
   })
