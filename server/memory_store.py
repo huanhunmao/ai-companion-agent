@@ -1,6 +1,7 @@
 import contextlib
 import json
 import os
+import tempfile
 from typing import Dict, List
 
 try:
@@ -13,7 +14,21 @@ except ImportError:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_MEMORY = os.path.join(BASE_DIR, "memory_store.json")
-MEMORY_FILE = os.path.abspath(os.getenv("MEMORY_STORE_PATH", _DEFAULT_MEMORY))
+
+
+def _resolve_memory_file() -> str:
+    configured = (os.getenv("MEMORY_STORE_PATH") or "").strip()
+    if configured:
+        return os.path.abspath(configured)
+
+    # Vercel Functions use a read-only filesystem except for /tmp.
+    if os.getenv("VERCEL"):
+        return os.path.join(tempfile.gettempdir(), "ai-companion-memory-store.json")
+
+    return _DEFAULT_MEMORY
+
+
+MEMORY_FILE = _resolve_memory_file()
 _LOCK_FILE = f"{MEMORY_FILE}.lock"
 
 
